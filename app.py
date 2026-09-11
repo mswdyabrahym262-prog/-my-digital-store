@@ -1,19 +1,17 @@
 import os
 import sqlite3
-from flask import Flask, render_template_string, redirect, url_for, request, send_from_directory
+from flask import Flask, render_template, redirect, url_for, request, send_from_directory
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates')
 
-# تهيئة مجلد التحميلات على السيرفر
 DOWNLOAD_FOLDER = os.path.join(os.getcwd(), 'downloads')
 if not os.path.exists(DOWNLOAD_FOLDER):
     os.makedirs(DOWNLOAD_FOLDER)
 
-# محفظة باينانس الخاصة بك
+# محفظة باينانس الخاصة بك لاستلام الأرباح مباشرة
 MY_BINANCE_USDT_WALLET = "TBv3y23NRT7erMsF7GMeuu6FnCyTDybZ1k"
 
 def init_db():
-    # استخدام مسار مؤقت آمن وقابل للكتابة على خوادم ريندر
     db_path = os.path.join(os.getcwd(), 'store.db')
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -43,114 +41,45 @@ def index():
     db_path = os.path.join(os.getcwd(), 'store.db')
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM products")
+    cursor.execute("SELECT name, type, price, description FROM products")
     all_products = cursor.fetchall()
     conn.close()
     
-    # دمج كود الـ HTML الأنيق الخاص بك مباشرة لمنع أخطاء مسارات المجلدات
-    html = '''
-    <!DOCTYPE html>
-    <html lang="ar" dir="rtl">
+    # جلب ملف index.html من مجلد templates بشكل رسمي ونظيف
+    return render_template('index.html', products=all_products)
+
+@app.route('/pay/<string:product_name>')
+def pay(product_name):
+    # عرض صفحة الدفع الرقمية الآمنة مع محفظة باينانس الخاصة بك
+    html_pay = f'''
+    <html dir="rtl">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>متجر إبراهيم Masoudi للأكواد</title>
-        <style>
-            body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; margin: 0; padding: 0; color: #333; }
-            header { background-color: #1e3a8a; color: white; padding: 30px 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-            header h1 { margin: 0; font-size: 26px; }
-            header p { margin: 8px 0 0; font-size: 15px; opacity: 0.9; }
-            .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-            .card { background: white; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); padding: 20px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid #e5e7eb; }
-            .badge { color: white; padding: 4px 8px; font-size: 12px; border-radius: 5px; align-self: flex-start; margin-bottom: 10px; font-weight: bold; }
-            .badge.python { background-color: #3776ab; }
-            .badge.web { background-color: #e34c26; }
-            .card h3 { margin: 0 0 10px 0; font-size: 18px; color: #111827; }
-            .card p { font-size: 14px; color: #4b5563; line-height: 1.6; margin: 0 0 20px 0; }
-            .card-footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f3f4f6; padding-top: 15px; }
-            .price { font-size: 18px; font-weight: bold; color: #10b981; }
-            .btn-buy { background-color: #ff9900; color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: bold; }
-            footer { text-align: center; padding: 20px; background-color: #1f2937; color: #9ca3af; font-size: 13px; margin-top: 50px; }
-        </style>
+        <title>بوابة الدفع - متجر إبراهيم</title>
     </head>
-    <body>
-        <header>
-            <h1>متجر إبراهيم Masoudi الرقمي</h1>
-            <p>أكواد Python جاهزة وقوانين ويب احترافية مبرمجة ومجربة بالكامل</p>
-        </header>
-        <div class="container">
-            {% for prod in products %}
-            <div class="card">
-                <div>
-                    {% if prod[2] == 'Python Script' %}
-                    <span class="badge python">{{ prod[2] }}</span>
-                    {% else %}
-                    <span class="badge web">{{ prod[2] }}</span>
-                    {% endif %}
-                    <h3>{{ prod[1] }}</h3>
-                    <p>{{ prod[4] }}</p>
-                </div>
-                <div class="card-footer">
-                    <span class="price">{{ prod[3] }}$</span>
-                    <a href="/pay/{{ prod[0] }}" class="btn-buy">شراء وتحميل تلقائي ⚡</a>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        <footer>
-            <p>جميع الحقوق محفوظة © إبراهيم مسعودي 2026</p>
-            <p>تم التطوير والبرمجة بالكامل عبر تطبيقات Pydroid 3 & TrebEdit</p>
-        </footer>
-    </body>
-    </html>
-    '''
-    return render_template_string(html, products=all_products)
-
-@app.route('/pay/<int:product_id>')
-def pay(product_id):
-    db_path = os.path.join(os.getcwd(), 'store.db')
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("SELECT name, price FROM products WHERE id=?", (product_id,))
-    product = cursor.fetchone()
-    conn.close()
-    
-    if not product:
-        return "المنتج غير موجود"
-
-    html_pay = f'''
-    <html dir="rtl">
     <body style="font-family:sans-serif; text-align:center; padding:50px; background:#fafafa; color:#333;">
         <h2 style="color:#1e3a8a;">🔐 بوابة الدفع الرقمية الآمنة لمتجر إبراهيم</h2>
-        <p>أنت تقوم بشراء: <b>{product[0]}</b></p>
-        <p>الرجاء تحويل <b>{product[1]} USDT</b> إلى عنوان محفظة Binance التالي لشبكة <b>(TRC20)</b>:</p>
+        <p>أنت تقوم بشراء: <b>{product_name}</b></p>
+        <p>الرجاء تحويل <b>5 USDT</b> إلى عنوان محفظة Binance التالي لشبكة <b>(TRC20)</b>:</p>
         <div style="background:#fff; border:2px dashed #ff9900; padding:15px; display:inline-block; font-family:monospace; font-size:18px; margin:20px 0; word-break:break-all; max-width:90%;">
             {MY_BINANCE_USDT_WALLET}
         </div>
         <br><br>
-        <a href="/verify_payment/{product_id}" style="background:#10b981; color:white; padding:12px 24px; text-decoration:none; border-radius:5px; font-weight:bold; display:inline-block;">محاكاة نجاح الدفع (التسليم الآلي الفوري) ✅</a>
+        <a href="/verify_payment" style="background:#10b981; color:white; padding:12px 24px; text-decoration:none; border-radius:5px; font-weight:bold; display:inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">محاكاة نجاح الدفع (التسليم الآلي الفوري) ✅</a>
     </body>
     </html>
     '''
     return html_pay
 
-@app.route('/verify_payment/<int:product_id>')
-def verify_payment(product_id):
-    db_path = os.path.join(os.getcwd(), 'store.db')
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("SELECT file_name, name FROM products WHERE id=?", (product_id,))
-    product = cursor.fetchone()
-    conn.close()
-    
-    if product:
-        file_name = product[0]
-        test_file_path = os.path.join(DOWNLOAD_FOLDER, file_name)
-        if not os.path.exists(test_file_path):
-            with open(test_file_path, 'w', encoding='utf-8') as f:
-                f.write(f"مرحباً بك! هذا هو ملف السورس كود الخاص بـ: {product[1]} \\nبرمجة وتطوير المطور المتميز إبراهيم مسعودي 2026.")
-        return send_from_directory(DOWNLOAD_FOLDER, file_name, as_attachment=True)
-    return "خطأ في معالجة المنتج."
+@app.route('/verify_payment')
+def verify_payment():
+    file_name = "Ibrahim_Codes.zip"
+    test_file_path = os.path.join(DOWNLOAD_FOLDER, file_name)
+    if not os.path.exists(test_file_path):
+        with open(test_file_path, 'w', encoding='utf-8') as f:
+            f.write("مرحباً بك! هذا هو ملف السورس كود الخاص بك من متجر إبراهيم مسعودي 2026.")
+    return send_from_directory(DOWNLOAD_FOLDER, file_name, as_attachment=True)
 
 if __name__ == '__main__':
     init_db()
